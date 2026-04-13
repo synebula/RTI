@@ -1,0 +1,529 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Remote Text Input</title>
+    <style>
+      :root {
+        --bg: #f3eee2;
+        --card: rgba(255, 255, 255, 0.82);
+        --panel: rgba(255, 255, 255, 0.72);
+        --ink: #17232b;
+        --muted: #5f6f77;
+        --accent: #0f766e;
+        --accent-2: #d96c2f;
+        --accent-3: #18344a;
+        --border: rgba(23, 35, 43, 0.1);
+        --shadow: 0 24px 60px rgba(23, 35, 43, 0.14);
+        --shadow-soft: 0 10px 24px rgba(23, 35, 43, 0.08);
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: "Noto Sans SC", "Noto Sans", sans-serif;
+        color: var(--ink);
+        background:
+          radial-gradient(
+            circle at top left,
+            rgba(15, 118, 110, 0.17),
+            transparent 30%
+          ),
+          radial-gradient(
+            circle at top right,
+            rgba(217, 108, 47, 0.14),
+            transparent 24%
+          ),
+          linear-gradient(180deg, #faf7ef, var(--bg));
+        display: grid;
+        place-items: center;
+        padding: 18px;
+      }
+      .shell {
+        width: min(100%, 760px);
+        background: var(--card);
+        backdrop-filter: blur(12px);
+        border: 1px solid var(--border);
+        border-radius: 28px;
+        box-shadow: var(--shadow);
+        padding: 18px;
+      }
+      .hero {
+        position: relative;
+        overflow: hidden;
+        border-radius: 24px;
+        padding: 12px 14px;
+        background: linear-gradient(
+          145deg,
+          rgba(15, 118, 110, 0.96),
+          rgba(24, 52, 74, 0.94)
+        );
+        color: white;
+        box-shadow: var(--shadow-soft);
+      }
+      .hero-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1.35fr) minmax(220px, 0.95fr);
+        gap: 12px;
+        align-items: start;
+      }
+      .hero::after {
+        content: "";
+        position: absolute;
+        inset: auto -40px -60px auto;
+        width: 180px;
+        height: 180px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.1);
+        filter: blur(2px);
+      }
+      .eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 5px 10px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.14);
+        font-size: 0.8rem;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+      }
+      h1 {
+        margin: 8px 0 4px;
+        font-size: clamp(1.08rem, 2.6vw, 1.38rem);
+        line-height: 1.1;
+      }
+      .hint {
+        margin: 0;
+        max-width: 24rem;
+        color: rgba(255, 255, 255, 0.86);
+        font-size: 0.82rem;
+        line-height: 1.4;
+      }
+      .steps {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 8px;
+        margin: 0;
+      }
+      .step {
+        min-width: 0;
+        border-radius: 14px;
+        padding: 8px 10px;
+        background: rgba(255, 255, 255, 0.12);
+      }
+      .step strong {
+        display: block;
+        margin-bottom: 2px;
+        font-size: 0.75rem;
+      }
+      .step span {
+        display: block;
+        font-size: 0.72rem;
+        color: rgba(255, 255, 255, 0.78);
+        line-height: 1.35;
+      }
+      .hero-copy {
+        min-width: 0;
+      }
+      .hero-steps {
+        min-width: 0;
+      }
+      .editor-card {
+        margin-top: 16px;
+        border-radius: 24px;
+        border: 1px solid var(--border);
+        background: var(--panel);
+        padding: 14px;
+      }
+      .toolbar {
+        display: grid;
+        grid-template-columns: 1.3fr 1.3fr 1fr 1fr;
+        gap: 10px;
+        margin-top: 12px;
+      }
+      .mode-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin: 12px 0;
+        padding: 12px 14px;
+        border-radius: 18px;
+        background: rgba(23, 35, 43, 0.06);
+      }
+      .mode-copy {
+        min-width: 0;
+      }
+      .mode-title {
+        display: block;
+        font-size: 0.92rem;
+        font-weight: 700;
+      }
+      .mode-note {
+        display: block;
+        margin-top: 2px;
+        color: var(--muted);
+        font-size: 0.8rem;
+        line-height: 1.45;
+      }
+      .mode-toggle {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        flex-shrink: 0;
+      }
+      .mode-toggle input {
+        position: absolute;
+        opacity: 0;
+        pointer-events: none;
+      }
+      .mode-pill {
+        width: 46px;
+        height: 28px;
+        border-radius: 999px;
+        background: rgba(23, 35, 43, 0.16);
+        transition: background 0.2s ease;
+      }
+      .mode-pill::after {
+        content: "";
+        display: block;
+        width: 20px;
+        height: 20px;
+        margin: 4px;
+        border-radius: 50%;
+        background: white;
+        box-shadow: 0 4px 12px rgba(23, 35, 43, 0.18);
+        transition: transform 0.2s ease;
+      }
+      .mode-toggle input:checked + .mode-pill {
+        background: linear-gradient(135deg, var(--accent), #14968b);
+      }
+      .mode-toggle input:checked + .mode-pill::after {
+        transform: translateX(18px);
+      }
+      .mode-state {
+        font-size: 0.76rem;
+        font-weight: 700;
+        color: var(--accent-3);
+      }
+      button {
+        appearance: none;
+        border: 0;
+        border-radius: 18px;
+        min-height: 52px;
+        padding: 12px 14px;
+        font: inherit;
+        font-weight: 800;
+        cursor: pointer;
+        transition:
+          transform 0.08s ease,
+          opacity 0.2s ease,
+          box-shadow 0.2s ease;
+        box-shadow: var(--shadow-soft);
+      }
+      button:active {
+        transform: translateY(1px) scale(0.99);
+      }
+      .primary {
+        background: linear-gradient(135deg, var(--accent), #14968b);
+        color: white;
+      }
+      .secondary {
+        background: linear-gradient(135deg, var(--accent-2), #f08a4b);
+        color: white;
+      }
+      .ghost {
+        background: rgba(23, 35, 43, 0.06);
+        color: var(--ink);
+      }
+      .subtle {
+        background: white;
+        color: var(--accent-3);
+      }
+      .button-label {
+        display: block;
+        font-size: 0.98rem;
+        line-height: 1.1;
+      }
+      .button-note {
+        display: block;
+        margin-top: 4px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        opacity: 0.78;
+      }
+      textarea {
+        width: 100%;
+        min-height: 280px;
+        resize: vertical;
+        border-radius: 22px;
+        border: 1px solid var(--border);
+        padding: 18px;
+        font: inherit;
+        font-size: 1.02rem;
+        line-height: 1.65;
+        background: rgba(255, 255, 255, 0.96);
+        color: var(--ink);
+        outline: none;
+      }
+      textarea:focus {
+        border-color: rgba(15, 118, 110, 0.45);
+        box-shadow: 0 0 0 4px rgba(15, 118, 110, 0.12);
+      }
+      .footer {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 14px;
+        margin-top: 12px;
+        flex-wrap: wrap;
+      }
+      .footnote {
+        margin: 0;
+        color: var(--muted);
+        line-height: 1.55;
+        font-size: 0.92rem;
+      }
+      .status {
+        min-height: 1.5em;
+        margin: 0;
+        color: var(--muted);
+        font-size: 0.92rem;
+        text-align: right;
+      }
+      code {
+        background: rgba(255, 255, 255, 0.16);
+        padding: 2px 6px;
+        border-radius: 8px;
+      }
+      @media (max-width: 720px) {
+        body {
+          padding: 12px;
+        }
+        .shell {
+          padding: 12px;
+          border-radius: 24px;
+        }
+        .hero {
+          padding: 14px;
+        }
+        .steps {
+          grid-template-columns: 1fr;
+        }
+        .toolbar {
+          grid-template-columns: 1fr 1fr;
+        }
+        textarea {
+          min-height: 240px;
+        }
+        .footer {
+          flex-direction: column;
+        }
+        .status {
+          text-align: left;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="shell">
+      <section class="hero">
+        <div class="hero-grid">
+          <div class="hero-copy">
+            <span class="eyebrow">RTI</span>
+            <h1>Remote Text Input</h1>
+            <p class="hint">远程文本输入助手。</p>
+          </div>
+          <div class="hero-steps">
+            <div class="steps">
+              <div class="step">
+                <strong>01 先聚焦</strong>
+                <span>先点一下 Linux 目标输入框。</span>
+              </div>
+              <div class="step">
+                <strong>02 再输入</strong>
+                <span>这里可直接用 Android 输入法打字。</span>
+              </div>
+              <div class="step">
+                <strong>03 点发送</strong>
+                <span>支持文本、文本加回车、单独回车。</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+      <section class="editor-card">
+        <div class="mode-row">
+          <div class="mode-copy">
+            <span class="mode-title">终端模式</span>
+            <span class="mode-note">使用 Ctrl+Shift+V 适合 Terminal。</span>
+          </div>
+          <label class="mode-toggle">
+            <input id="terminalMode" type="checkbox" />
+            <span class="mode-pill" aria-hidden="true"></span>
+            <span class="mode-state" id="modeState">普通</span>
+          </label>
+        </div>
+        <textarea
+          id="editor"
+          autofocus
+          placeholder="在这里输入中文、英文，或者多行文本。发送前不用手动复制。"
+        ></textarea>
+        <div class="toolbar">
+          <button class="secondary" id="sendTextEnter">
+            <span class="button-label">发送文本并回车</span>
+            <span class="button-note">适合聊天或命令确认</span>
+          </button>
+          <button class="primary" id="sendText">
+            <span class="button-label">发送文本</span>
+            <span class="button-note">只发送当前内容</span>
+          </button>
+          <button class="subtle" id="sendEnter">
+            <span class="button-label">只发回车</span>
+            <span class="button-note">保留焦点</span>
+          </button>
+          <button class="ghost" id="clearText">
+            <span class="button-label">清空</span>
+            <span class="button-note">不发送任何内容</span>
+          </button>
+        </div>
+        <div class="footer">
+          <p class="footnote">点击发送前会先结束输入法组合态，再读取文本。</p>
+          <p class="status" id="status">已连接。请先聚焦 Linux 目标输入框。</p>
+        </div>
+      </section>
+    </main>
+    <script>
+      const token =
+        new URLSearchParams(window.location.search).get("token") || "";
+      const terminalModeKey = "remote-text-input:terminal-mode";
+      const editor = document.getElementById("editor");
+      const status = document.getElementById("status");
+      const terminalMode = document.getElementById("terminalMode");
+      const modeState = document.getElementById("modeState");
+
+      function loadTerminalMode() {
+        try {
+          return window.localStorage.getItem(terminalModeKey) === "terminal";
+        } catch {
+          return false;
+        }
+      }
+
+      function saveTerminalMode(enabled) {
+        try {
+          window.localStorage.setItem(
+            terminalModeKey,
+            enabled ? "terminal" : "paste",
+          );
+        } catch {}
+      }
+
+      function syncModeLabel() {
+        modeState.textContent = terminalMode.checked ? "终端" : "普通";
+      }
+
+      async function flushComposition() {
+        editor.blur();
+        await new Promise((resolve) => setTimeout(resolve, 40));
+      }
+
+      async function call(path, payload) {
+        const res = await fetch(path, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Auth-Token": token,
+          },
+          body: JSON.stringify(payload || {}),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          throw new Error(data.error || "HTTP " + res.status);
+        }
+        return data;
+      }
+
+      function setStatus(message, isError = false) {
+        status.textContent = message;
+        status.style.color = isError ? "#b42318" : "var(--muted)";
+      }
+
+      async function sendText(withEnter) {
+        await flushComposition();
+        const text = editor.value;
+        if (!text.trim() && !text.includes("\n")) {
+          setStatus("先输入一点内容再发送。", true);
+          return;
+        }
+        try {
+          setStatus("正在发送文本...");
+          const result = await call("/api/commit", {
+            text,
+            enter: withEnter,
+            inputMode: terminalMode.checked ? "terminal" : "paste",
+          });
+          editor.value = "";
+          setStatus(
+            withEnter
+              ? result.mode === "terminal-pasted"
+                ? "已用 Ctrl+Shift+V 粘贴并回车。"
+                : "已粘贴文本并回车。"
+              : result.mode === "terminal-pasted"
+                ? "已用 Ctrl+Shift+V 粘贴。"
+                : "已粘贴文本。",
+          );
+          editor.focus();
+        } catch (err) {
+          setStatus("发送失败：" + err.message, true);
+        }
+      }
+
+      async function sendEnter() {
+        try {
+          setStatus("正在发送回车...");
+          await call("/api/enter");
+          setStatus("已发送回车。");
+        } catch (err) {
+          setStatus("发送失败：" + err.message, true);
+        }
+      }
+
+      document
+        .getElementById("sendText")
+        .addEventListener("click", () => sendText(false));
+      document
+        .getElementById("sendTextEnter")
+        .addEventListener("click", () => sendText(true));
+      document.getElementById("sendEnter").addEventListener("click", sendEnter);
+      document.getElementById("clearText").addEventListener("click", () => {
+        editor.value = "";
+        editor.focus();
+        setStatus("已清空。");
+      });
+      terminalMode.checked = loadTerminalMode();
+      syncModeLabel();
+      terminalMode.addEventListener("change", () => {
+        syncModeLabel();
+        saveTerminalMode(terminalMode.checked);
+        setStatus(
+          terminalMode.checked
+            ? "已切换到终端模式：发送时会使用 Ctrl+Shift+V。"
+            : "已切换到普通模式：发送时会使用 Ctrl+V。",
+        );
+      });
+      window.addEventListener("pageshow", () =>
+        setTimeout(() => editor.focus(), 60),
+      );
+      window.addEventListener("focus", () =>
+        setTimeout(() => editor.focus(), 60),
+      );
+      editor.focus();
+    </script>
+  </body>
+</html>

@@ -145,72 +145,6 @@
         gap: 10px;
         margin-top: 12px;
       }
-      .mode-row {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 12px;
-        margin: 12px 0;
-        padding: 12px 14px;
-        border-radius: 18px;
-        background: rgba(23, 35, 43, 0.06);
-      }
-      .mode-copy {
-        min-width: 0;
-      }
-      .mode-title {
-        display: block;
-        font-size: 0.92rem;
-        font-weight: 700;
-      }
-      .mode-note {
-        display: block;
-        margin-top: 2px;
-        color: var(--muted);
-        font-size: 0.8rem;
-        line-height: 1.45;
-      }
-      .mode-toggle {
-        position: relative;
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        flex-shrink: 0;
-      }
-      .mode-toggle input {
-        position: absolute;
-        opacity: 0;
-        pointer-events: none;
-      }
-      .mode-pill {
-        width: 46px;
-        height: 28px;
-        border-radius: 999px;
-        background: rgba(23, 35, 43, 0.16);
-        transition: background 0.2s ease;
-      }
-      .mode-pill::after {
-        content: "";
-        display: block;
-        width: 20px;
-        height: 20px;
-        margin: 4px;
-        border-radius: 50%;
-        background: white;
-        box-shadow: 0 4px 12px rgba(23, 35, 43, 0.18);
-        transition: transform 0.2s ease;
-      }
-      .mode-toggle input:checked + .mode-pill {
-        background: linear-gradient(135deg, var(--accent), #14968b);
-      }
-      .mode-toggle input:checked + .mode-pill::after {
-        transform: translateX(18px);
-      }
-      .mode-state {
-        font-size: 0.76rem;
-        font-weight: 700;
-        color: var(--accent-3);
-      }
       button {
         appearance: none;
         border: 0;
@@ -358,17 +292,6 @@
         </div>
       </section>
       <section class="editor-card">
-        <div class="mode-row">
-          <div class="mode-copy">
-            <span class="mode-title">终端模式</span>
-            <span class="mode-note">使用 Ctrl+Shift+V 适合 Terminal。</span>
-          </div>
-          <label class="mode-toggle">
-            <input id="terminalMode" type="checkbox" />
-            <span class="mode-pill" aria-hidden="true"></span>
-            <span class="mode-state" id="modeState">普通</span>
-          </label>
-        </div>
         <textarea
           id="editor"
           autofocus
@@ -377,11 +300,11 @@
         <div class="toolbar">
           <button class="secondary" id="sendTextEnter">
             <span class="button-label">发送文本并回车</span>
-            <span class="button-note">适合聊天或命令确认</span>
+            <span class="button-note">普通模式 · Ctrl+V</span>
           </button>
           <button class="primary" id="sendText">
             <span class="button-label">发送文本</span>
-            <span class="button-note">只发送当前内容</span>
+            <span class="button-note">终端模式 · Ctrl+Shift+V</span>
           </button>
           <button class="subtle" id="sendEnter">
             <span class="button-label">只发回车</span>
@@ -401,32 +324,8 @@
     <script>
       const token =
         new URLSearchParams(window.location.search).get("token") || "";
-      const terminalModeKey = "remote-text-input:terminal-mode";
       const editor = document.getElementById("editor");
       const status = document.getElementById("status");
-      const terminalMode = document.getElementById("terminalMode");
-      const modeState = document.getElementById("modeState");
-
-      function loadTerminalMode() {
-        try {
-          return window.localStorage.getItem(terminalModeKey) === "terminal";
-        } catch {
-          return false;
-        }
-      }
-
-      function saveTerminalMode(enabled) {
-        try {
-          window.localStorage.setItem(
-            terminalModeKey,
-            enabled ? "terminal" : "paste",
-          );
-        } catch {}
-      }
-
-      function syncModeLabel() {
-        modeState.textContent = terminalMode.checked ? "终端" : "普通";
-      }
 
       async function flushComposition() {
         editor.blur();
@@ -454,7 +353,7 @@
         status.style.color = isError ? "#b42318" : "var(--muted)";
       }
 
-      async function sendText(withEnter) {
+      async function sendText(withEnter, inputMode) {
         await flushComposition();
         const text = editor.value;
         if (!text.trim() && !text.includes("\n")) {
@@ -466,7 +365,7 @@
           const result = await call("/api/commit", {
             text,
             enter: withEnter,
-            inputMode: terminalMode.checked ? "terminal" : "paste",
+            inputMode: inputMode,
           });
           editor.value = "";
           setStatus(
@@ -496,26 +395,15 @@
 
       document
         .getElementById("sendText")
-        .addEventListener("click", () => sendText(false));
+        .addEventListener("click", () => sendText(false, "terminal"));
       document
         .getElementById("sendTextEnter")
-        .addEventListener("click", () => sendText(true));
+        .addEventListener("click", () => sendText(true, "paste"));
       document.getElementById("sendEnter").addEventListener("click", sendEnter);
       document.getElementById("clearText").addEventListener("click", () => {
         editor.value = "";
         editor.focus();
         setStatus("已清空。");
-      });
-      terminalMode.checked = loadTerminalMode();
-      syncModeLabel();
-      terminalMode.addEventListener("change", () => {
-        syncModeLabel();
-        saveTerminalMode(terminalMode.checked);
-        setStatus(
-          terminalMode.checked
-            ? "已切换到终端模式：发送时会使用 Ctrl+Shift+V。"
-            : "已切换到普通模式：发送时会使用 Ctrl+V。",
-        );
       });
       window.addEventListener("pageshow", () =>
         setTimeout(() => editor.focus(), 60),

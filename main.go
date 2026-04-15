@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"time"
 
@@ -32,6 +33,28 @@ type config struct {
 	PrintTerminalQR  bool
 }
 
+const maxPortRetries = 10
+
+func isPortAvailable(host string, port int) bool {
+	addr := fmt.Sprintf("%s:%d", host, port)
+	listener, err := net.Listen("tcp", addr)
+	if err != nil {
+		return false
+	}
+	listener.Close()
+	return true
+}
+
+func findAvailablePort(host string, startPort int) int {
+	for i := 0; i < maxPortRetries; i++ {
+		port := startPort + i
+		if isPortAvailable(host, port) {
+			return port
+		}
+	}
+	return -1
+}
+
 func main() {
 	cfg, err := parseFlags()
 	if err != nil {
@@ -42,6 +65,15 @@ func main() {
 	}
 
 	logger.Verbose = cfg.LogEnabled
+
+	availablePort := findAvailablePort(cfg.Host, cfg.Port)
+	if availablePort == -1 {
+		log.Fatalf("failed to find available port after %d attempts (starting from %d)", maxPortRetries, cfg.Port)
+	}
+	if availablePort != cfg.Port {
+		log.Printf("port %d is in use, using port %d instead", cfg.Port, availablePort)
+	}
+	cfg.Port = availablePort
 
 	displayHost := util.DetectLocalIP()
 	localURL := fmt.Sprintf("http://127.0.0.1:%d/?token=%s", cfg.Port, cfg.Token)

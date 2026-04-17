@@ -145,10 +145,20 @@
         padding: 14px;
       }
       .toolbar {
-        display: grid;
-        grid-template-columns: 1.3fr 1.3fr 1fr 1fr;
+        display: flex;
+        flex-direction: column;
         gap: 10px;
         margin-top: 12px;
+      }
+      .toolbar-row {
+        display: grid;
+        gap: 10px;
+      }
+      .toolbar-row.primary {
+        grid-template-columns: 1fr 1fr;
+      }
+      .toolbar-row.secondary {
+        grid-template-columns: 1fr 1fr 1fr;
       }
       button {
         appearance: none;
@@ -254,8 +264,11 @@
         .steps {
           grid-template-columns: 1fr;
         }
-        .toolbar {
+        .toolbar-row.primary-row {
           grid-template-columns: 1fr 1fr;
+        }
+        .toolbar-row.secondary-row {
+          grid-template-columns: 1fr 1fr 1fr;
         }
         textarea {
           min-height: 220px;
@@ -303,25 +316,32 @@
           placeholder="在这里输入中文、英文，或者多行文本。发送前不用手动复制。"
         ></textarea>
         <div class="toolbar">
-          <button class="secondary" id="sendTextEnter">
-            <span class="button-label">发送文本并回车</span>
-            <span class="button-note">普通模式 · Ctrl+V</span>
-          </button>
-          <button class="primary" id="sendText">
-            <span class="button-label">发送文本</span>
-            <span class="button-note">终端模式 · Ctrl+Shift+V</span>
-          </button>
-          <button class="subtle" id="sendEnter">
-            <span class="button-label">只发回车</span>
-            <span class="button-note">保留焦点</span>
-          </button>
-          <button class="ghost" id="clearText">
-            <span class="button-label">清空</span>
-            <span class="button-note">不发送任何内容</span>
-          </button>
+          <div class="toolbar-row primary-row">
+            <button class="secondary" id="sendTextEnter">
+              <span class="button-label">发送文本回车</span>
+              <span class="button-note">普通模式 · Ctrl+V</span>
+            </button>
+            <button class="primary" id="sendText">
+              <span class="button-label">发送文本</span>
+              <span class="button-note">终端模式 · Ctrl+Shift+V</span>
+            </button>
+          </div>
+          <div class="toolbar-row secondary-row">
+            <button class="subtle" id="sendEnter">
+              <span class="button-label">回车</span>
+              <span class="button-note">只发回车</span>
+            </button>
+            <button class="subtle" id="restoreLast">
+              <span class="button-label">恢复</span>
+              <span class="button-note">恢复内容</span>
+            </button>
+            <button class="ghost" id="clearText">
+              <span class="button-label">清空</span>
+              <span class="button-note">清空内容</span>
+            </button>
+          </div>
         </div>
         <div class="footer">
-          <p class="footnote">点击发送前会先结束输入法组合态，再读取文本。</p>
           <p class="status" id="status">已连接。请先聚焦 Linux 目标输入框。</p>
         </div>
       </section>
@@ -331,6 +351,7 @@
         new URLSearchParams(window.location.search).get("token") || "";
       const editor = document.getElementById("editor");
       const status = document.getElementById("status");
+      const STORAGE_KEY = "rti-last-sent";
 
       async function flushComposition() {
         editor.blur();
@@ -372,6 +393,7 @@
             enter: withEnter,
             inputMode: inputMode,
           });
+          localStorage.setItem(STORAGE_KEY, text);
           editor.value = "";
           setStatus(
             withEnter
@@ -398,6 +420,17 @@
         }
       }
 
+      function restoreLast() {
+        const last = localStorage.getItem(STORAGE_KEY);
+        if (last) {
+          editor.value = last;
+          editor.focus();
+          setStatus("已恢复上次发送的内容。");
+        } else {
+          setStatus("没有可恢复的内容。", true);
+        }
+      }
+
       document
         .getElementById("sendText")
         .addEventListener("click", () => sendText(false, "terminal"));
@@ -410,6 +443,10 @@
         editor.focus();
         setStatus("已清空。");
       });
+      document
+        .getElementById("restoreLast")
+        .addEventListener("click", restoreLast);
+
       window.addEventListener("pageshow", () =>
         setTimeout(() => editor.focus(), 60),
       );

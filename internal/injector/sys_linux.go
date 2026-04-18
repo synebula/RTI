@@ -7,8 +7,6 @@ import (
 	"fmt"
 	"os/exec"
 	"strings"
-
-	"remote-text-input/internal/logger"
 )
 
 func ValidateRuntime() error {
@@ -58,31 +56,11 @@ func PrintTerminalQR(url string) {
 	fmt.Println()
 }
 
-func OpenBrowserPage(url string) {
-	cmd := exec.Command("xdg-open", url)
-	if err := cmd.Start(); err != nil {
-		logger.Event("open-browser-failed", "url", fmt.Sprintf("%q", url), "error", fmt.Sprintf("%q", err.Error()))
-		return
-	}
-	logger.Event("open-browser", "url", fmt.Sprintf("%q", url))
-}
-
 func (i *Injector) readClipboard() (string, error) {
-	result, err := i.runCommand([]string{"wl-paste", "--no-newline"}, "")
-	if i.dryRun {
-		return "", nil
-	}
-	if err != nil {
-		return "", err
-	}
-	return result, nil
+	return i.runCommand([]string{"wl-paste", "--no-newline"}, "")
 }
 
 func (i *Injector) writeClipboard(text string) error {
-	if i.dryRun {
-		_, err := i.runCommand([]string{"wl-copy"}, text)
-		return err
-	}
 	cmd := exec.Command("wl-copy")
 	cmd.Stdin = strings.NewReader(text)
 	if err := cmd.Run(); err != nil {
@@ -115,18 +93,8 @@ func (i *Injector) isTerminalFocused() bool {
 	}
 	identity := strings.ToLower(window.Class + " " + window.Title)
 	for _, marker := range []string{
-		"kitty",
-		"wezterm",
-		"ghostty",
-		"alacritty",
-		"foot",
-		"gnome-terminal",
-		"terminal",
-		"xterm",
-		"konsole",
-		"tilix",
-		"rio",
-		"tmux",
+		"kitty", "wezterm", "ghostty", "alacritty", "foot",
+		"gnome-terminal", "terminal", "xterm", "konsole", "tilix", "rio", "tmux",
 	} {
 		if strings.Contains(identity, marker) {
 			return true
@@ -137,11 +105,8 @@ func (i *Injector) isTerminalFocused() bool {
 
 func (i *Injector) activeWindow() (activeWindow, error) {
 	output, err := i.runCommand([]string{"hyprctl", "-j", "activewindow"}, "")
-	if err != nil {
+	if err != nil || output == "" {
 		return activeWindow{}, err
-	}
-	if i.dryRun || output == "" {
-		return activeWindow{}, nil
 	}
 	var window activeWindow
 	if err := json.Unmarshal([]byte(output), &window); err != nil {
@@ -153,17 +118,6 @@ func (i *Injector) activeWindow() (activeWindow, error) {
 func (i *Injector) runCommand(args []string, stdin string) (string, error) {
 	if len(args) == 0 {
 		return "", &InjectionError{msg: "empty command"}
-	}
-	if i.dryRun {
-		fmt.Println("[dry-run]", shellJoin(args))
-		if i.logEnabled && stdin != "" {
-			preview := stdin
-			if len(preview) > 80 {
-				preview = preview[:77] + "..."
-			}
-			fmt.Printf("[dry-run] stdin=%q\n", preview)
-		}
-		return "", nil
 	}
 	cmd := exec.Command(args[0], args[1:]...)
 	if stdin != "" {

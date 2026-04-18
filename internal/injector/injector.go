@@ -12,19 +12,15 @@ type InjectionError struct{ msg string }
 func (e *InjectionError) Error() string { return e.msg }
 
 type Injector struct {
-	dryRun           bool
-	logEnabled       bool
-	restoreClipboard bool
-	pasteDelay       time.Duration
-	mu               sync.Mutex
+	logEnabled bool
+	pasteDelay time.Duration
+	mu         sync.Mutex
 }
 
-func New(dryRun, logEnabled, restoreClipboard bool, pasteDelay time.Duration) *Injector {
+func New(logEnabled bool, pasteDelay time.Duration) *Injector {
 	return &Injector{
-		dryRun:           dryRun,
-		logEnabled:       logEnabled,
-		restoreClipboard: restoreClipboard,
-		pasteDelay:       pasteDelay,
+		logEnabled: logEnabled,
+		pasteDelay: pasteDelay,
 	}
 }
 
@@ -35,13 +31,11 @@ func (i *Injector) CommitText(text string, pressEnter bool, preferTerminalPaste 
 	i.mu.Lock()
 	defer i.mu.Unlock()
 
-	var previous string
-	if i.restoreClipboard {
-		previous, _ = i.readClipboard()
-	}
+	previous, _ := i.readClipboard()
 	if err := i.writeClipboard(text); err != nil {
 		return "", err
 	}
+
 	mode := "pasted"
 	if preferTerminalPaste {
 		if err := i.dispatchTerminalPaste(); err != nil {
@@ -53,15 +47,15 @@ func (i *Injector) CommitText(text string, pressEnter bool, preferTerminalPaste 
 			return "", err
 		}
 	}
+
 	time.Sleep(i.pasteDelay)
 	if pressEnter {
 		if err := i.dispatchShortcut("", "RETURN"); err != nil {
 			return "", err
 		}
 	}
-	if i.restoreClipboard {
-		go i.restoreClipboardLater(previous)
-	}
+
+	go i.restoreClipboardLater(previous)
 	return mode, nil
 }
 
